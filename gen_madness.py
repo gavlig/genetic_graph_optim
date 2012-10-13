@@ -260,9 +260,8 @@ def stepToVert(mat, fndVert, start, dest, path, pathNum, currVert, orient):
 	pathToVert(mat, start, dest, path, fndVert, newPathNum)
 
 # Find distance from one vertex to another
-# distance == len(path)
+# distance == len(path) - 1
 # path should be two-dimensional list
-# path[0][] is the shortest path
 def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 	#number of vertices in matrix
 	#print("currVert: {}".format(currVert))
@@ -335,7 +334,7 @@ def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 		if 2 <= verbose:
 			print("best path is #{}".format(pathNum))
 			
-		return len(path[pathNum])
+		return len(path[pathNum]) - 1
 
 #
 def minimizeMat(minType):
