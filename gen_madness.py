@@ -43,13 +43,13 @@ def depth(mat):
 	#number of vertices in matrix
 	vertCnt = len(mat)
 	dists = []
+	max = -1
 	for i in range(0, vertCnt):
 		for j in range(i + 1, vertCnt):
 			
 			if 2 <= verbose:
 				print("\nlooking for path between {} and {}".format(i, j))
 			
-			max = -1
 			dist = pathToVert(mat, i, j)
 			if max < dist or -1 == max:
 				max = dist
