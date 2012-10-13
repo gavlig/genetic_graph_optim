@@ -46,19 +46,16 @@ def depth(mat):
 	for i in range(0, vertCnt):
 		for j in range(i + 1, vertCnt):
 			
-			if 2 == verbose:
+			if 2 <= verbose:
 				print("\nlooking for path between {} and {}".format(i, j))
 			
+			max = -1
 			dist = pathToVert(mat, i, j)
-			if dist:
-				dists.append(dist)
-				if 2 == verbose:
-					print("distance appended: {}".format(dist))
-			else:
-				print("Error: could not find distance between verts {} and {}".\
-					format(i, j))
-	if dists:
-		print("distances between every two vertices: {}".format(dists))
+			if max < dist or -1 == max:
+				max = dist
+				if 2 <= verbose:
+					print("new max distance: {}".format(dist))
+	if dist:
 		return max(dists)
 	else:
 		return []
@@ -121,7 +118,7 @@ def averMinDist(mat, visited, currVert, dist):
 					#if 0 == len(visited) and 1 == mat[0][0]:
 					#	visited.append(1)
 					visited.append(i + 1)
-					isGraphConnected(mat, currVert, visited)
+					isConnected(mat, currVert, visited)
 					if len(visited) == vertCnt + 1:
 						return True
 	return False
@@ -209,10 +206,12 @@ def findRamification(mat, row, prevVert = -1):
 def stepToVert(mat, fndVert, start, dest, path, pathNum, currVert, orient):
 	vertCnt = len(mat)
 	prevVert = -1
-	if path and path[pathNum][-1] == vertCnt:
+	
+	if path and path[pathNum][-1] == vertCnt and 1 != len(path[pathNum]):
 		prevVert = path[pathNum][-2]
-	elif path:
+	elif path and 1 != len(path[pathNum]):
 		prevVert = path[pathNum][-1]
+	
 	if fndVert == dest:
 		path[pathNum].append(fndVert)
 		#print("i == {} == dest so i'm outta here".format(fndVert, dest))
@@ -280,7 +279,7 @@ def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 	shifted = 0
 	
 	#horizontal
-	if 0 < currVert and currVert < vertCnt and path[pathNum][-1] != dest:
+	if 0 < currVert and currVert <= vertCnt and path[pathNum][-1] != dest:
 		# indexes are shifted because we use triangular matrix
 		currVert -= 1
 		shifted = 1
@@ -310,7 +309,7 @@ def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 	#we returned to start point so it's time to find optimal path
 	if 1 < len(path[0]) and currVert == path[0][0]:
 		
-		if 2 == verbose:
+		if 2 <= verbose:
 			print("\npathToVert result:\n")
 			print("paths found:{}".format(len(path)))
 			
@@ -349,7 +348,7 @@ def isConnected(mat):
 	currVert = []
 	currVert.insert(0, 0)
 	currVert.insert(1, 0)
-	return isGraphConnected(mat, currVert, visited)
+	return isConnected(mat, currVert, visited)
 
 # Check if graph is connected(if we can reach any random vertex from another)
 # recursive
@@ -381,7 +380,7 @@ def isConnected(mat, currVert, visited):
 				currVert[0] = i + 1
 				currVert[1] = i + 1
 				visited.append(i + 1)
-				return isGraphConnected(mat, currVert, visited)
+				return isConnected(mat, currVert, visited)
 	return False
 
 # Generate a random binary triangular matrix
