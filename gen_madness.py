@@ -1,7 +1,8 @@
 #TODO: graphDepth
 #TODO: genRandomMat
 #TODO: algo itself
-#TODO: verbose mode
+#TODO: finish verbose mode
+#TODO: converting normal matrix to triangle
 
 import sys
 import getopt
@@ -9,41 +10,27 @@ import json
 import random
 #import math
 
+#global in order to make it visible through all functions
+verbose = False
+
 def usage():
 	print("usage is not implemented yet")
 	
 # Load file with json-formatted data and parse it 
-# return verts, mat, depth, degree, averMinDist on success
-# 		 -1, [], 0, 0, 0 on failure(could not open file)
+# return matrix of incidece on success
+# [] on failure(could not open file)
 def loadGraph(inputFilePath):
 	inputFile = open(inputFilePath, "r", encoding="utf-8")
 	#check if file is open
 	if inputFile is None:
-		print("Could not open file {}".format(inputFilePath))
-		return -1, [], 0, 0, 0
+		print("Error: Could not open file {}".format(inputFilePath))
+		return []
 		
 	data = json.load(inputFile)
-	verts = data.get("Verts")
-	if verts == None:
-		verts = 0
 	mat = data.get("Matrix")
 	if mat == None:
 		mat = []
-	depth = data.get("Depth")
-	if depth == None:
-		depth = 0
-	edges = data.get("Edges")
-	if edges == None:
-		edges = 0
-	averMinDist = data.get("AverMinDist")
-	if averMinDist == None:
-		averMinDist = 0
-		
-	return verts,\
-		mat,\
-		depth,\
-		edges,\
-		averMinDist
+	return mat
 
 # Swap two values
 def swap(a, b):
@@ -58,15 +45,20 @@ def depth(mat):
 	dists = []
 	for i in range(0, vertCnt):
 		for j in range(i + 1, vertCnt):
-			print(i, j)
+			
+			if 2 == verbose:
+				print("\nlooking for path between {} and {}".format(i, j))
+			
 			dist = pathToVert(mat, i, j)
 			if dist:
 				dists.append(dist)
+				if 2 == verbose:
+					print("distance appended: {}".format(dist))
 			else:
-				print("could not find distance between verts {} and {}".\
+				print("Error: could not find distance between verts {} and {}".\
 					format(i, j))
 	if dists:
-		print(dists)
+		print("distances between every two vertices: {}".format(dists))
 		return max(dists)
 	else:
 		return []
@@ -100,6 +92,7 @@ def averMinDist(mat):
 # Recursive. For internal use. Use averMinDist(mat) to get average minimal
 # distance for matrix
 def averMinDist(mat, visited, currVert, dist):
+	global verbose
 	#number of vertices in matrix
 	vertCnt = len(mat)
 	x = currVert[0]
@@ -135,7 +128,6 @@ def averMinDist(mat, visited, currVert, dist):
 
 # Find ramification for vertex where vertex number is col
 # return False if there is no ramification, else - True
-# col == column
 # prevVert = vertex we came from. Connection with prevVert doesn't count as
 # ramification
 def findRamificationVer(mat, col, row = None, prevVert = -1):
@@ -161,7 +153,6 @@ def findRamificationVer(mat, col, row = None, prevVert = -1):
 	
 # Find ramification for vertex where vertex number is col
 # return False if there is no ramification, else - True
-# col == column
 # prevVert = vertex we came from. Connection with prevVert doesn't count as
 # ramification
 def findRamificationHor(mat, col, row, prevVert = -1):
@@ -276,6 +267,8 @@ def stepToVert(mat, fndVert, start, dest, path, pathNum, currVert, orient):
 def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 	#number of vertices in matrix
 	#print("currVert: {}".format(currVert))
+	global verbose
+	
 	vertCnt = len(mat)
 	if None == currVert:
 		currVert = start
@@ -283,8 +276,9 @@ def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 		path = []
 		path.insert(0, [])
 	if start == currVert and (None == path or not path[0]):
-		path[0].append(start)	
+		path[0].append(start)
 	shifted = 0
+	
 	#horizontal
 	if 0 < currVert and currVert < vertCnt and path[pathNum][-1] != dest:
 		# indexes are shifted because we use triangular matrix
@@ -312,15 +306,25 @@ def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 	
 	if shifted:
 		currVert += 1
-	#print(len(path[0]), path[0], currVert)	
+	
 	#we returned to start point so it's time to find optimal path
 	if 1 < len(path[0]) and currVert == path[0][0]:
-		print("paths found:{}".format(len(path)))
+		
+		if 2 == verbose:
+			print("\npathToVert result:\n")
+			print("paths found:{}".format(len(path)))
+			
 		pathNum = -1
 		length = -1
-		print("#0; path:{}".format(path[0]))
-		for i in range(1, len(path)):
-			print("#{}; path:{}".format(i, path[i]))
+		
+		#if 2 <= verbose:
+		#	print("#0; path:{}".format(path[0]))
+			
+		for i in range(0, len(path)):
+			
+			if 2 <= verbose:
+				print("#{}; path:{}".format(i, path[i]))
+				
 			currLen = len(path[i])
 			if currLen < length and path[i][-1] == dest and pathNum != -1:
 				pathNum = i
@@ -328,7 +332,10 @@ def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 			elif pathNum == -1 and path[i][-1] == dest:
 				pathNum = i
 				length = currLen
-		print("best path is #{}".format(pathNum))
+				
+		if 2 <= verbose:
+			print("best path is #{}".format(pathNum))
+			
 		return len(path[pathNum])
 
 #
@@ -336,6 +343,7 @@ def minimizeMat(minType):
 	print("minimizeMat is not implemented yet")
 
 # Overloaded
+# Check if graph is connected(if we can reach any random vertex from another)
 def isConnected(mat):
 	visited = []
 	currVert = []
@@ -446,27 +454,35 @@ def main(argv = None):
 	try:
 		opts, args = getopt.getopt(
 			argv[1:],\
-			"hi:vm:l:",\
-			["help", "input=", "min-type=", "limit="])
+			"hi:v:m:l:",\
+			["help", "input=", "min-type=", "limit=", "verbose="])
 	except getopt.GetoptError as err:
 		print(err)
 		usage()
 		return -1
 		#NOTREACHED
+		
 	if len(opts) == 0:
 		usage()
 		return 0
+		#NOTREACHED
+		
 	output = None
-	verbose = False
 	inputFilePath = ""
-	#minType: 0 - minimizing average min distance with fixed vertex degree
-	#		  1 - minimizing average min distance and vert degree for fixed depth
-	#default = 0
+	
+	"""
+	minType: 0 - minimizing average min distance with fixed vertex degree
+			 1 - minimizing average min distance and vert degree for fixed depth
+	default - 0
+	"""
+	
 	minType = 0
 	limit = 0
+	global verbose
+	
 	for opt, arg in opts:
-		if opt == "-v":
-			verbose = True
+		if opt in ("-v", "--verbose"):
+			verbose = int(arg)
 		elif opt in ("-h", "--help"):
 			usage()
 			return 0
@@ -494,27 +510,21 @@ def main(argv = None):
 	matDepth = 0
 	matAverMinDist = 0 
 	matDegree = 0
-	matVertsNum, mat, matDepth, matEdges, matAverMinDist = loadGraph(inputFilePath)
-	#could not open input file
-	if matVertsNum == -1:
-		return 1
-		#NOTREACHED
-	#read empty matrix from file(or there was no matrix)
-	elif len(mat) <= 0:
+	mat = loadGraph(inputFilePath)
+	
+	#matrix was empty of file doesn't exist
+	if 0 == len(mat):
 		return 2
 		#NOTREACHED
 
-	if matVertsNum != len(mat):
-		matVertsNum = len(mat)
-
 	if verbose:
-		print("matrix len is: {}".format(len(mat)))
+		print("Matrix len is: {}\nInitial matrix:".format(len(mat)))
 		for i in range(len(mat)):
 			print("matrix[{}]: {}".format(i, mat[i]))
-
-	#print(pathToVert(mat, 1, 2))
-	print("----fuckage----")
-	print("graph depth is {}".format(depth(mat)))
+			
+	matDepth = depth(mat)
+	print("depth is {}".format(matDepth))
+	
 	"""
 	visited = []
 	currVert = []
