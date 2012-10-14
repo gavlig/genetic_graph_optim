@@ -42,7 +42,6 @@ def swap(a, b):
 def depth(mat):
 	#number of vertices in matrix
 	vertCnt = len(mat)
-	dists = []
 	max = -1
 	for i in range(0, vertCnt):
 		for j in range(i + 1, vertCnt):
@@ -56,9 +55,9 @@ def depth(mat):
 				if 2 <= verbose:
 					print("new max distance: {}".format(dist))
 	if dist:
-		return max(dists)
+		return max
 	else:
-		return []
+		return -1
 
 # Define matrix degree(maximum number of edges for one vertex)
 # Matrix must be traingular
@@ -84,11 +83,11 @@ def averMinDist(mat):
 	currVert.insert(0, 0)
 	currVert.insert(1, 0)
 	dist = 0
-	return averMinDist(mat, currVert, visited, dist)
+	return averMinDist_(mat, currVert, visited, dist)
 
 # Recursive. For internal use. Use averMinDist(mat) to get average minimal
 # distance for matrix
-def averMinDist(mat, visited, currVert, dist):
+def averMinDist_(mat, visited, currVert, dist):
 	global verbose
 	#number of vertices in matrix
 	vertCnt = len(mat)
@@ -118,103 +117,73 @@ def averMinDist(mat, visited, currVert, dist):
 					#if 0 == len(visited) and 1 == mat[0][0]:
 					#	visited.append(1)
 					visited.append(i + 1)
-					isConnected(mat, currVert, visited)
+					isConnected_(mat, currVert, visited)
 					if len(visited) == vertCnt + 1:
 						return True
-	return False
-
-# Find ramification for vertex where vertex number is col
-# return False if there is no ramification, else - True
-# prevVert = vertex we came from. Connection with prevVert doesn't count as
-# ramification
-def findRamificationVer(mat, col, row = None, prevVert = -1):
-	#number of vertices in matrix
-	vertCnt = len(mat)
-	if row == None:
-		row = col
-	#out or range
-	if vertCnt - 1 < row or row < 0 or\
-		vertCnt - 1 < col or col < 0:
-		return False
-		#NOTREACHED
-	#edge counter. edgeCnt > 1 -> we have a ramification here
-	edgeCnt = 0
-	for i in range(row, vertCnt):
-		if 0 < mat[i][col] and i != prevVert:
-			edgeCnt += 1
-		if 1 < edgeCnt:
-			return True
-			#NOTREACHED
-
-	return False
-	
-# Find ramification for vertex where vertex number is col
-# return False if there is no ramification, else - True
-# prevVert = vertex we came from. Connection with prevVert doesn't count as
-# ramification
-def findRamificationHor(mat, col, row, prevVert = -1):
-	#number of vertices in matrix
-	vertCnt = len(mat)
-	#out or range
-	if vertCnt - 1 < row or row < 0 or\
-		vertCnt - 1 < col or col < 0:
-		return False
-		#NOTREACHED
-	#edge counter. edgeCnt > 1 -> we have a ramification here
-	edgeCnt = 0
-	for i in range(col, -1, -1):
-		if 0 < mat[row][i] and i != prevVert:
-			edgeCnt += 1
-		if 1 < edgeCnt:
-			return True
-			#NOTREACHED
-
 	return False
 	
 # Find ramification for vertex where vertex number is row
 # return False if there is no ramification, else - True
+# row = current vertex number - 1
 # prevVert = vertex we came from. Connection with prevVert doesn't count as
 # ramification
-def findRamification(mat, row, prevVert = -1):
-	col = row + 1
+def findRamification(mat, path, pathNum, row):
 	#number of vertices in matrix
 	vertCnt = len(mat)
+	pathLen = len(path[pathNum])
+	
+	verts = []
+	#making a list of visited verts(to avoid them in search of ramification)
+	"""
+	for i in range(0, len(path)):
+		for j in range(0,  len(path[i])):
+			if path[i][j] not in verts:
+				verts.append(path[i][j])
+	"""
+				
+				
+	currPath = path[pathNum]
+	for i in range(0,  len(path)):
+		if i == pathNum:
+			continue
+		similarPath = [j for j, k in zip(currPath, path[i]) if j == k]	
+		if similarPath == currPath and pathLen < len(path[i]):
+			verts.append(path[i][pathLen])
 	#out or range
-	if vertCnt - 1 < row or row < 0 or\
-		vertCnt - 1 < col or col < 0:
+	#-1 can appear when currVert is 0 and direction was vertical(see pathToVert)
+	if vertCnt - 1 < row or row < -1:
 		return False
 		#NOTREACHED
-	#edge counter. edgeCnt > 1 -> we have a ramification here
+		
+	#edge counter. edgeCnt > 1 means we have a ramification here
 	edgeCnt = 0
-	for i in range(0, col + 1):
-		if 0 < mat[row][i] and i != prevVert:
+	for i in range(0, row + 1):
+		#if 0 < mat[row][i] and i != prevVert and i not in verts:
+		if 0 < mat[row][i] and i not in currPath and i not in verts:
 			edgeCnt += 1
 		if 1 < edgeCnt:
 			return True
 			#NOTREACHED
+	
+	#incrementing because row + 1 == col == actual vertex num
+	row += 1
 	for i in range(row, vertCnt):
-		if 0 < mat[i][col] and i != prevVert:
+		#if 0 < mat[i][row] and i + 1 != prevVert and i + 1 not in verts:
+		if 0 < mat[i][row] and i + 1 not in currPath and i + 1 not in verts:
 			edgeCnt += 1
 		if 1 < edgeCnt:
 			return True
 			#NOTREACHED
+			
 	return False
-
+	
 # for internal use only. Part of the pathToVert function
 # fndVert - actual vert founded
 # orient - horizontal or vertical orientation(0 and 1)
 def stepToVert(mat, fndVert, start, dest, path, pathNum, currVert, orient):
-	vertCnt = len(mat)
-	prevVert = -1
-	
-	if path and path[pathNum][-1] == vertCnt and 1 != len(path[pathNum]):
-		prevVert = path[pathNum][-2]
-	elif path and 1 != len(path[pathNum]):
-		prevVert = path[pathNum][-1]
-	
+	#next vertex is the one we are looking for!
 	if fndVert == dest:
 		path[pathNum].append(fndVert)
-		#print("i == {} == dest so i'm outta here".format(fndVert, dest))
 		if currVert != start:
 			return -2
 			#NOTREACHED
@@ -223,28 +192,14 @@ def stepToVert(mat, fndVert, start, dest, path, pathNum, currVert, orient):
 			#NOTREACHED
 	newPathNum = pathNum
 	ram = 0
-	#a piece of legendary crappo-messcode
-	if orient:
-		ram = findRamificationVer(mat, currVert, fndVert - 1, prevVert)
-		if not ram:
-			ram = findRamificationHor(mat, currVert - 1, currVert - 1, prevVert)
-	elif not ram:
-		ram = findRamificationHor(mat, fndVert, currVert, prevVert)
-		if not ram:
-			ram = findRamificationVer(mat, currVert + 1, currVert + 1, prevVert)
 
-	"""
+	#it depends on the direction of matrix checking(see pathToVert)
+	vertForRam = currVert
 	if orient:
-		ram = findRamificationVer(mat, currVert, fndVert, prevVert)
-		if not ram:
-			ram |= findRamificationHor(mat, currVert, fndVert - 1, prevVert)
-	elif not ram:
-		print(currVert, fndVert)
-		ram |= findRamificationVer(mat, fndVert + 1, currVert, prevVert)
-		if not ram:
-			ram |= findRamificationHor(mat, currVert, fndVert, prevVert)
-	"""
-	#print("ram is {}".format(ram))
+		vertForRam -= 1
+	
+	ram = findRamification(mat, path, pathNum, vertForRam)
+
 	#ramification found so we create new instance of path to compare
 	#with
 	if ram:
@@ -252,11 +207,8 @@ def stepToVert(mat, fndVert, start, dest, path, pathNum, currVert, orient):
 		newPath = path[pathNum][:]
 		path.append(newPath)
 		newPathNum = len(path) - 1
-		#print("ramification occurred for pathNum: {}".format(pathNum))
-	#print("moving to vert #{}".format(fndVert))
 	path[newPathNum].append(fndVert)
 	#going recursive
-	#print("oldPathNum:{} newPathNum:{} path:{}".format(pathNum, newPathNum, path[newPathNum]))
 	pathToVert(mat, start, dest, path, fndVert, newPathNum)
 
 # Find distance from one vertex to another
@@ -264,7 +216,6 @@ def stepToVert(mat, fndVert, start, dest, path, pathNum, currVert, orient):
 # path should be two-dimensional list
 def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 	#number of vertices in matrix
-	#print("currVert: {}".format(currVert))
 	global verbose
 	
 	vertCnt = len(mat)
@@ -283,6 +234,8 @@ def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 		currVert -= 1
 		shifted = 1
 		for i in range(currVert, -1, -1):
+			if path[pathNum][-1] == dest:
+				break
 			if 0 < mat[currVert][i] and (i not in path[pathNum] or i == dest):
 				out = stepToVert(mat, i, start, dest, path, pathNum, currVert, 0)
 				if -2 == out:
@@ -295,6 +248,8 @@ def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 			currVert += 1
 			shifted = 0
 		for i in range(currVert, vertCnt):
+			if path[pathNum][-1] == dest:
+				break
 			if 0 < mat[i][currVert] and (i + 1 not in path[pathNum] or i + 1 == dest) :
 				out = stepToVert(mat, i + 1, start, dest, path, pathNum, currVert, 1)
 				if -2 == out:
@@ -315,9 +270,6 @@ def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 		pathNum = -1
 		length = -1
 		
-		#if 2 <= verbose:
-		#	print("#0; path:{}".format(path[0]))
-			
 		for i in range(0, len(path)):
 			
 			if 2 <= verbose:
@@ -335,25 +287,26 @@ def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 			print("best path is #{}".format(pathNum))
 			
 		return len(path[pathNum]) - 1
+	else:
+		return 0
 
 #
 def minimizeMat(minType):
 	print("minimizeMat is not implemented yet")
 
-# Overloaded
 # Check if graph is connected(if we can reach any random vertex from another)
 def isConnected(mat):
 	visited = []
 	currVert = []
 	currVert.insert(0, 0)
 	currVert.insert(1, 0)
-	return isConnected(mat, currVert, visited)
+	return isConnected_(mat, currVert, visited)
 
 # Check if graph is connected(if we can reach any random vertex from another)
 # recursive
 # currVert[x][y] - current position in graph
 # visited - list of visited vertices(list of vertex numbers)
-def isConnected(mat, currVert, visited):
+def isConnected_(mat, currVert, visited):
 	#number of vertices in matrix
 	vertCnt = len(mat)
 	x = currVert[0]
