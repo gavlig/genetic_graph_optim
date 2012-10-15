@@ -1,6 +1,5 @@
 #TODO: genRandomMat
 #TODO: algo itself
-#TODO: finish verbose mode
 #TODO: converting normal matrix to triangle
 
 import sys
@@ -293,32 +292,53 @@ def isConnected_(mat, currVert, visited):
 		return False
 		#NOTREACHED
 
-	#print("current vertex: {}".format(currVert))
-	#print("visited: {}".format(visited))
-
 	if len(visited) == vertCnt + 1:
 		return True
 		#NOTREACHED
 	else:
 		for i in range(x, vertCnt):
-			#print("checking vert: {},{}, val: {}".format(i, y, mat[i][y]))
 			if 0 < mat[i][y] and i + 1 not in visited and i < vertCnt:
 				if 0 == len(visited):
 					visited.append(i)
 				currVert[0] = i + 1
 				currVert[1] = i + 1
 				visited.append(i + 1)
-				return isConnected(mat, currVert, visited)
+				return isConnected_(mat, currVert, visited)
+				#NOTREACHED
 	return False
 
-# Generate a random binary triangular matrix
+# Generate a simple random binary triangular matrix
 # Example: 
 # genRandomMat(4) will return something like
 # [0]
 # [0, 1]
 # [1, 1, 0]
 # [0, 1, 0, 1]
-def genRandomMat(size, limit):
+def genRandomMat(size):
+	bit = 0
+	mat = []
+	for i in range(size):
+		mat.insert(i, [])
+		for j in range(i + 1):
+			num = random.random()
+			if 0.5 <= num:
+				bit = 1
+			else:
+				bit = 0
+			mat[i].insert(j, bit)
+
+	return mat
+	
+# Generate a random binary triangular matrix sutisfying first 
+# minimization type(minType == 0, vertex degree must be fixed)
+#
+# Example: 
+# genRandomMat0(4) will return something like
+# [0]
+# [0, 1]
+# [1, 1, 0]
+# [0, 1, 0, 1]
+def genRandomMat0(size, limit):
 	bit = 0
 	mat = []
 	for i in range(size):
