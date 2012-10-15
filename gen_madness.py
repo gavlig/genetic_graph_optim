@@ -1,6 +1,5 @@
-#TODO: genRandomMat
 #TODO: algo itself
-#TODO: converting normal matrix to triangle
+#TODO: converting normal matrix to triangular
 
 import sys
 import getopt
@@ -14,22 +13,6 @@ verbose = False
 def usage():
 	print("usage is not implemented yet")
 	
-# Load file with json-formatted data and parse it 
-# return matrix of incidece on success
-# [] on failure(could not open file)
-def loadGraph(inputFilePath):
-	inputFile = open(inputFilePath, "r", encoding="utf-8")
-	#check if file is open
-	if inputFile is None:
-		print("Error: Could not open file {}".format(inputFilePath))
-		return []
-		
-	data = json.load(inputFile)
-	mat = data.get("Matrix")
-	if mat == None:
-		mat = []
-	return mat
-
 # Swap two values
 def swap(a, b):
 	#python, i love you here
@@ -263,9 +246,58 @@ def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 	else:
 		return 0
 
+# Tournament selection 
 #
-def minimizeMat(minType):
-	print("minimizeMat is not implemented yet")
+# reference - Luke S. Essentials of Metaheuristics" p.38
+def select():
+	return
+
+# Minimize matrix by the rules of minType == 0 (see comments in main)
+# mat - triangular matrix to optimize
+# limit - fixed vertex degree
+# popSize - the size of one population
+# generLim - limit of generations
+# minType - see comments in main
+#
+# return 0 - matrix was successfully minimized
+#
+# reference - Luke S. Essentials of Metaheuristics" p.39
+def minimizeMat0(mat, limit, popSize, generLim):
+	
+	#sanity check
+	if not mat or not len(mat) or int(popSize) <= 0 or int(generLim) <= 0:
+		return 1
+		#NOTREACHED
+	
+	matSize = len(mat)
+	pop = []				#population
+	
+	#filling it in
+	while len(pop) < popSize:
+		ind = genRandomMat0(matSize, limit)
+		if isConnected(ind)
+			pop.append(ind)
+		
+	best = [-1, -1]			#the best individual with lowest average
+							#minimal distance (graph, AMD);
+	gen = 0					#generation number;
+	AMD = -1				#average minimal distance;
+	#filling in with zeros
+	for i in range(0, popSize):
+		AMDs.append(0)
+	
+	while True:
+		
+		#assess fitness
+		for i in range(0, popSize):
+			AMD = averMinDist(pop[i])
+			if AMD < best[1] or -1 == best[0]:
+				best[0] = AMD
+				best[1] = pop[i]
+		
+		
+		if generLim <= gen:
+			break
 
 # Check if graph is connected(if we can reach any random vertex from another)
 def isConnected(mat):
@@ -401,8 +433,8 @@ def main(argv = None):
 	try:
 		opts, args = getopt.getopt(
 			argv[1:],\
-			"hi:v:m:l:",\
-			["help", "input=", "min-type=", "limit=", "verbose="])
+			"hv:m:l:",\
+			["help", "min-type=", "limit=", "verbose="])
 	except getopt.GetoptError as err:
 		print(err)
 		usage()
@@ -426,6 +458,7 @@ def main(argv = None):
 	minType = 0
 	limit = 0
 	global verbose
+	verbose = 1
 	
 	for opt, arg in opts:
 		if opt in ("-v", "--verbose"):
@@ -434,8 +467,6 @@ def main(argv = None):
 			usage()
 			return 0
 			#NOTREACHED
-		elif opt in ("-i", "--input"):
-			inputFilePath = arg
 		elif opt in ("-m", "--min-type"):
 			minType = arg
 		elif opt in ("-l", "--limit"):
@@ -446,7 +477,7 @@ def main(argv = None):
 			#NOTREACHED
 
 	#simple check on empty args
-	if inputFilePath == "" or limit == 0:
+	if limit == 0:
 		usage()
 		return 0
 		#NOTREACHED
@@ -457,20 +488,9 @@ def main(argv = None):
 	matDepth = 0
 	matAverMinDist = 0 
 	matDegree = 0
-	mat = loadGraph(inputFilePath)
 	
-	#matrix was empty of file doesn't exist
-	if 0 == len(mat):
-		return 2
-		#NOTREACHED
-
-	if verbose:
-		print("\n   Matrix len is: {}\n\n   Initial matrix:\n".format(len(mat)))
-		for i in range(len(mat)):
-			print("{}".format(mat[i]))
-	
-	matAverMinDist = averMinDist(mat)
-	print("Average minimal distance equals: {}".format(matAverMinDist))
+	#matAverMinDist = averMinDist(mat)
+	#print("Average minimal distance equals: {}".format(matAverMinDist))
 	
 	#matDepth = depth(mat)
 	#print("depth is {}".format(matDepth))
@@ -484,12 +504,7 @@ def main(argv = None):
 		print("Graph is connected")
 	else:
 		print("Graph is not connected")
-	"""
-	
-	if not minType:
-		print("minType 0 is not yet implemented")
-	else:
-		print("minType 1 is not yet implemented")
+	"""	
 
 if __name__ == "__main__":
 	#TODO: add descriptions for errors
