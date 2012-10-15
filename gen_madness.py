@@ -1,4 +1,3 @@
-#TODO: graphDepth
 #TODO: genRandomMat
 #TODO: algo itself
 #TODO: finish verbose mode
@@ -40,6 +39,9 @@ def swap(a, b):
 # Find distances between every two verts and take max from them
 # Return [] if any there are less than 2 vertices
 def depth(mat):
+	if 1 <= verbose:
+		print("\n   Calculating graph depth\n")
+	
 	#number of vertices in matrix
 	vertCnt = len(mat)
 	max = -1
@@ -76,51 +78,31 @@ def matDegree(mat):
 	
 	return degree
 
-#
+# get average minimal distance for graph
 def averMinDist(mat):
-	visited = []
-	currVert = []
-	currVert.insert(0, 0)
-	currVert.insert(1, 0)
-	dist = 0
-	return averMinDist_(mat, currVert, visited, dist)
-
-# Recursive. For internal use. Use averMinDist(mat) to get average minimal
-# distance for matrix
-def averMinDist_(mat, visited, currVert, dist):
-	global verbose
+	if 1 <= verbose:
+		print("\n   Calculating average minimal distance for graph\n")
 	#number of vertices in matrix
 	vertCnt = len(mat)
-	x = currVert[0]
-	y = currVert[1]
-	#out or range
-	if vertCnt - 1 < x or x < 0 or\
-		vertCnt - 1 < y or y < 0:
-		return False
-		#NOTREACHED
-
-	print("current vertex: {}".format(currVert))
-	print("visited: {}".format(visited))
-
-	if len(visited) == vertCnt + 1:
-		return True
-		#NOTREACHED
+	distSum = 0
+	distCnt = 0
+	
+	for i in range(0, vertCnt):
+		for j in range(i + 1, vertCnt):
+			
+			if 2 <= verbose:
+				print("\nlooking for path between {} and {}".format(i, j))
+			
+			dist = pathToVert(mat, i, j)
+			if dist:
+				distSum += dist
+				distCnt += 1
+				if 2 <= verbose:
+					print("its length: {}".format(dist))
+	if dist:
+		return  distSum / distCnt
 	else:
-		for i in range(x, vertCnt):
-			for j in range(i, vertCnt):
-				#print("checking vert: {},{}, val: {}".format(i, y, mat[i][y]))
-				if 0 < mat[i][y]:# and i + 1 not in visited and i < vertCnt:
-					if 0 == len(visited):
-						visited.append(i)
-					currVert[0] = i + 1
-					currVert[1] = i + 1
-					#if 0 == len(visited) and 1 == mat[0][0]:
-					#	visited.append(1)
-					visited.append(i + 1)
-					isConnected_(mat, currVert, visited)
-					if len(visited) == vertCnt + 1:
-						return True
-	return False
+		return -1
 	
 # Find ramification for vertex where vertex number is row
 # return False if there is no ramification, else - True
@@ -134,14 +116,6 @@ def findRamification(mat, path, pathNum, row):
 	
 	verts = []
 	#making a list of visited verts(to avoid them in search of ramification)
-	"""
-	for i in range(0, len(path)):
-		for j in range(0,  len(path[i])):
-			if path[i][j] not in verts:
-				verts.append(path[i][j])
-	"""
-				
-				
 	currPath = path[pathNum]
 	for i in range(0,  len(path)):
 		if i == pathNum:
@@ -263,7 +237,7 @@ def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 	#we returned to start point so it's time to find optimal path
 	if 1 < len(path[0]) and currVert == path[0][0]:
 		
-		if 2 <= verbose:
+		if 3 <= verbose:
 			print("\npathToVert result:\n")
 			print("paths found:{}".format(len(path)))
 			
@@ -272,7 +246,7 @@ def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 		
 		for i in range(0, len(path)):
 			
-			if 2 <= verbose:
+			if 3 <= verbose:
 				print("#{}; path:{}".format(i, path[i]))
 				
 			currLen = len(path[i])
@@ -283,7 +257,7 @@ def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 				pathNum = i
 				length = currLen
 				
-		if 2 <= verbose:
+		if 3 <= verbose:
 			print("best path is #{}".format(pathNum))
 			
 		return len(path[pathNum]) - 1
@@ -296,6 +270,8 @@ def minimizeMat(minType):
 
 # Check if graph is connected(if we can reach any random vertex from another)
 def isConnected(mat):
+	if 1 <= verbose:
+		print("\n   Checking if given graph is connected\n")
 	visited = []
 	currVert = []
 	currVert.insert(0, 0)
@@ -469,12 +445,15 @@ def main(argv = None):
 		#NOTREACHED
 
 	if verbose:
-		print("Matrix len is: {}\nInitial matrix:".format(len(mat)))
+		print("\n   Matrix len is: {}\n\n   Initial matrix:\n".format(len(mat)))
 		for i in range(len(mat)):
-			print("matrix[{}]: {}".format(i, mat[i]))
-			
-	matDepth = depth(mat)
-	print("depth is {}".format(matDepth))
+			print("{}".format(mat[i]))
+	
+	matAverMinDist = averMinDist(mat)
+	print("Average minimal distance equals: {}".format(matAverMinDist))
+	
+	#matDepth = depth(mat)
+	#print("depth is {}".format(matDepth))
 	
 	"""
 	visited = []
