@@ -1,11 +1,11 @@
-#TODO: algo itself
-#TODO: converting normal matrix to triangular
+#TODO: second minimization
+#TODO: multiprocessing for evolution process
 
 import sys
 import getopt
 import random
 import os
-#import math
+import multiprocessing
 
 #global in order to make it visible through all functions
 verbose = False
@@ -83,11 +83,12 @@ def checkDegree(mat, limit):
 	return degree
 
 # get average minimal distance for graph
-def averMinDist(mat):
+# modified for threading
+def averMinDist(graph):
 	if 1 <= verbose:
 		print("\n   Calculating average minimal distance for graph\n")
 	#number of vertices in matrix
-	vertCnt = len(mat)
+	vertCnt = len(graph)
 	distSum = 0
 	distCnt = 0
 	
@@ -97,16 +98,45 @@ def averMinDist(mat):
 			if 2 <= verbose:
 				print("\nlooking for path between {} and {}".format(i, j))
 			
-			dist = pathToVert(mat, i, j)
+			dist = pathToVert(graph, i, j)
 			if dist:
 				distSum += dist
 				distCnt += 1
 				if 2 <= verbose:
 					print("its length: {}".format(dist))
-	if dist and 0 != distCnt:
+	if distSum and 0 != distCnt:
 		return  distSum / distCnt
 	else:
 		return -1
+		
+# get average minimal distance for graph
+# modified for threading
+def averMinDistThr(graphNum, graph, queue):
+	if 1 <= verbose:
+		print("\n   Calculating average minimal distance for graph\n")
+	#number of vertices in matrix
+	vertCnt = len(graph)
+	distSum = 0
+	distCnt = 0
+	
+	for i in range(0, vertCnt):
+		for j in range(i + 1, vertCnt):
+			
+			if 2 <= verbose:
+				print("\nlooking for path between {} and {}".format(i, j))
+			
+			dist = pathToVert(graph, i, j)
+			if dist:
+				distSum += dist
+				distCnt += 1
+				if 2 <= verbose:
+					print("its length: {}".format(dist))
+	if distSum and 0 != distCnt:
+		queue.put([graphNum, distSum / distCnt])
+		#return  distSum / distCnt
+	else:
+		queue.put([-1, -1])
+		#return -1
 	
 # Find ramification for vertex where vertex number is row
 # return False if there is no ramification, else - True
@@ -326,13 +356,11 @@ def minimizeMat0(graphSize, target, limit, popSize, generLim):
 	
 	#filling it in
 	while len(pop) < popSize:
-		ind = genRandomMat(graphSize)
-		if isConnected(ind) and checkDegree(ind, limit):
-			pop.append(ind)
-			
+		pop.append(genRandomMat0(graphSize, limit))
+
 	print("\n   Population generated\n")
 		
-	best = [None, -1]			#the best individual with lowest average
+	best = [None, -1]		#the best individual with lowest average
 							#minimal distance (graph, AMD);
 	gen = 0					#generation number;
 	AMD = -1				#average minimal distance;
@@ -342,25 +370,68 @@ def minimizeMat0(graphSize, target, limit, popSize, generLim):
 	
 	while True:
 		
+		#
 		#assess fitness
-		for i in range(0, popSize):
-			AMD = averMinDist(pop[i])
-			print("ind#{}: AMD={}".format(i, AMD))
-			if AMD < best[1] or None == best[0]:
-				best[0] = pop[i]
-				best[1] = AMD
+		#
+		
+		processes = []
+		resultQueue = multiprocessing.Queue()
+		
+		#lets say we don't want more than 10 processes running at the same time
+		
+		procCnt = popSize	#process quantity
+		procCntMult = 1		#process quantity multiplier
+		if 10 < popSize:
+			procCntMult = int(popSize / 10)
+			procCnt = 10
+
+		#using multiprocessing
+		itNum = 0			#iteration number
+		for n in range(0, procCntMult):
+			dec = 0			#inner cycle iteration num
+			for i in range(0, procCnt):
+				graph = pop[itNum]
+				process = multiprocessing.Process(
+					target = averMinDistThr,
+					args = [itNum, pop[itNum], resultQueue]
+				)
+				process.start()
+				processes.append(process)
+				print(
+					"calculating average minimal distance for {} individual".
+					format(itNum)
+				)
 				
+				itNum += 1
+				dec += 1
+				if popSize < itNum:
+					break
+
+			#wait until any of the proccess have `.put()` a result
+			#while not resultQueue.empty():
+			for i in range(dec):
+				result = resultQueue.get()
+				print("process with ind#{} ended".format(result[0]))
+				#averMinDist will return [graphNum, AMD]
+				if result[1] < best[1] or -1 == best[1]:
+					best[0] = pop[result[0]]
+					best[1] = result[1]
+
+		for process in processes: #then kill them all off
+			process.terminate()
+
 		print("\n   Fitness assessed\n")
 				
 		if best[1] <= target:
-			print("\n   Target reached before generation number exceedes")
+			print("\n   Target reached before generation number exceeded. "
+				"Reached AMD = {}\n".format(best[1]))
 			return best[0]
 			#NOTREACHED
 		
 		newPop = []
 		for i in range(int(popSize / 2)):
 			
-			print("\n   Evolution begins\n")
+			print("evolution iteration: {}".format(i))
 			
 			#tournament size was taken from
 			#Luke S. Essentials of Metaheuristics" p.38
@@ -376,17 +447,25 @@ def minimizeMat0(graphSize, target, limit, popSize, generLim):
 				print("Error: mutation operation failed with params: {} {}".
 					format(childA, childB))
 			
-			newPop.append(childA)
-			newPop.append(childB)
+			if isConnected(childA) and checkDegree(childA, limit):
+				newPop.append(childA)
+			else:
+				newPop.append(genRandomMat0(graphSize, limit))
+			
+			if isConnected(childB) and checkDegree(childB, limit):
+				newPop.append(childB)
+			else:
+				newPop.append(genRandomMat0(graphSize, limit))	
 			
 		pop = newPop
 		gen += 1
 
 		#os.system('clear')
-		print("generation number: {}\nfittest AMD = {}".format(gen, best[0]))
+		print("generation number: {}\nfittest AMD = {}".format(gen, best[1]))
 
 		if generLim <= gen:
-			print("\n   Target not reached. Generation number exceeded")
+			print("\n   Target not reached. Generation number exceeded. "
+				"Reached AMD = {}\n".format(best[1]))
 			return best[0]
 	
 
@@ -460,28 +539,12 @@ def genRandomMat(size):
 	
 # Generate a random binary triangular matrix sutisfying first 
 # minimization type(minType == 0, vertex degree must be fixed)
-#
-# Example: 
-# genRandomMat0(4) will return something like
-# [0]
-# [0, 1]
-# [1, 1, 0]
-# [0, 1, 0, 1]
 def genRandomMat0(size, limit):
-	bit = 0
-	mat = []
-	for i in range(size):
-		degree = 0
-		mat.insert(i, [])
-		for j in range(i + 1):
-			num = random.random()
-			if 0.5 <= num and degree <= limit:
-				bit = 1
-				degree += 1
-			else:
-				bit = 0
-			mat[i].insert(j, bit)
-
+	res = []
+	while not len(res):
+		mat = genRandomMat(size)
+		if isConnected(mat) and checkDegree(mat, limit):
+			res = mat
 	return mat
 	
 # Perform bit-flip mutation on triangular matrix which will be processed as
@@ -500,7 +563,8 @@ def bitFlipMutate(mat):
 		for j in range(i + 1):
 			num = random.random()
 			if num <= p:
-				mat[i][j] = -mat[i][j]
+				#flipping to opposite(0 to 1 and 1 to 0)
+				mat[i][j] = mat[i][j] ^ 1
 	return mat
 
 # Perform One-Point Crossover("Luke S. Essentials of Metaheuristics" p.30)
@@ -528,8 +592,6 @@ def crossover(mat0, mat1):
 
 # return 0 - program finished successfully
 #		-1 - an exception occurred
-#		 1 - could not open file
-#		 2 - input matrix is empty
 def main(argv = None):
 	if argv is None:
 		argv = sys.argv
@@ -602,15 +664,17 @@ def main(argv = None):
 	"""
 	"""
 	8 verteces
-	target AMD = 1.7
+	target AMD = 1.4
 	maximum vertex degree = 4
-	population size = 50
+	population size = 100
 	generation cap = 1000
 	"""
 	
-	best = minimizeMat0(8, 1.5, 4, 10, 5)
+	best = minimizeMat0(8, 1.4, 4, 100, 5)
 	
-	print("minimization result: {}".format(best))
+	print("minimization result:")
+	for i in range(len(best)):
+		print(best[i])
 	
 	"""
 	matAverMinDist = averMinDist(mat)
