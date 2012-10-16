@@ -3,8 +3,8 @@
 
 import sys
 import getopt
-import json
 import random
+import os
 #import math
 
 #global in order to make it visible through all functions
@@ -29,10 +29,10 @@ def depth(mat):
 	max = -1
 	for i in range(0, vertCnt):
 		for j in range(i + 1, vertCnt):
-			
+
 			if 2 <= verbose:
 				print("\nlooking for path between {} and {}".format(i, j))
-			
+
 			dist = pathToVert(mat, i, j)
 			if max < dist or -1 == max:
 				max = dist
@@ -52,7 +52,7 @@ def matDegree(mat):
 	
 	for i in range(vertCnt):
 		buff = 0
-		for j in range(i):
+		for j in range(i + 1):
 			if mat[i][j]:
 				buff += 1
 		if degree < buff:
@@ -81,7 +81,7 @@ def averMinDist(mat):
 				distCnt += 1
 				if 2 <= verbose:
 					print("its length: {}".format(dist))
-	if dist:
+	if dist and 0 != distCnt:
 		return  distSum / distCnt
 	else:
 		return -1
@@ -246,36 +246,64 @@ def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 	else:
 		return 0
 
-# Tournament selection 
+# Tournament selection of the individual from the whole population
+# pop - population(vector of graphs)
+# tSize - size of the tournament 
+#
+# return None if input parameters are invalid
+#		 fittest graph on success
 #
 # reference - Luke S. Essentials of Metaheuristics" p.38
-def select():
-	return
+def selectInd(pop, tSize):
+	if not pop or not tSize:
+		return None
+		#NOTREACHED
+	
+	popLen = len(pop)
+	
+	if popLen <= tSize:
+		tSize = popLen - 1
+		
+	best[0] = randint(0, popLen - 1)
+	best[1] = averMinDist(pop[best[0]])
+	
+	#looking for the fittest individual
+	for i in range(1, tSize):
+		if best[0] == i:
+			continue
+		AMD = averMinDist(randint(a, b))
+		if AMD < best[1]:
+			best[0] = i
+			best[1] = AMD
+	
+	#popping it from vector
+	best[1] = pop.pop(best[0])
+	
+	return best[1]
 
 # Minimize matrix by the rules of minType == 0 (see comments in main)
 # mat - triangular matrix to optimize
 # limit - fixed vertex degree
-# popSize - the size of one population
+# popSize - the size of one population(should be even)
 # generLim - limit of generations
 # minType - see comments in main
 #
 # return 0 - matrix was successfully minimized
 #
-# reference - Luke S. Essentials of Metaheuristics" p.39
-def minimizeMat0(mat, limit, popSize, generLim):
+# reference - Luke S. Essentials of Metaheuristics" p.29
+def minimizeMat0(graphSize, target, limit, popSize, generLim):
 	
 	#sanity check
-	if not mat or not len(mat) or int(popSize) <= 0 or int(generLim) <= 0:
+	if not graphSize or int(popSize) <= 0 or int(generLim) <= 0:
 		return 1
 		#NOTREACHED
 	
-	matSize = len(mat)
 	pop = []				#population
 	
 	#filling it in
 	while len(pop) < popSize:
-		ind = genRandomMat0(matSize, limit)
-		if isConnected(ind)
+		ind = genRandomMat0(graphSize, limit)
+		if isConnected(ind):
 			pop.append(ind)
 		
 	best = [-1, -1]			#the best individual with lowest average
@@ -283,8 +311,8 @@ def minimizeMat0(mat, limit, popSize, generLim):
 	gen = 0					#generation number;
 	AMD = -1				#average minimal distance;
 	#filling in with zeros
-	for i in range(0, popSize):
-		AMDs.append(0)
+	#for i in range(0, popSize):
+	#	AMDs.append(0)
 	
 	while True:
 		
@@ -294,10 +322,39 @@ def minimizeMat0(mat, limit, popSize, generLim):
 			if AMD < best[1] or -1 == best[0]:
 				best[0] = AMD
 				best[1] = pop[i]
+				
+		if best[0] <= target:
+			return best[1]
+			#NOTREACHED
 		
-		
+		newPop = []
+		for i in range(popSize / 2):
+			#tournament size was taken from
+			#Luke S. Essentials of Metaheuristics" p.38
+			parentA = selectInd(pop, 2)
+			parentB = selectInd(pop, 2)
+			childA, childB = crossover(parentA, parentB)
+			if None == childA and None == childB:
+				print("Error: crossover operation failed with params: {} {}".
+					format(parentA, parentB))
+					
+			childA, childB = bitFlipMutate(childA), bitFlipMutate(childB)
+			if None == childA and None == childB:
+				print("Error: mutation operation failed with params: {} {}".
+					format(childA, childB))
+			
+			newPop.append(chidA)
+			newPop.append(chidB)
+			
+		pop = newPop
+		gen += 1
+
+		#os.system('clear')
+		print("generation number: {}\nfittest AMD = {}".format(gen, best[0]))
+
 		if generLim <= gen:
-			break
+			return best[1]
+	
 
 # Check if graph is connected(if we can reach any random vertex from another)
 def isConnected(mat):
@@ -390,13 +447,15 @@ def genRandomMat0(size, limit):
 # Perform bit-flip mutation on triangular matrix which will be processed as
 # binary vector
 def bitFlipMutate(mat):
+	if not mat or not len(mat):
+		return None
 	#number of vertices in matrix
 	vertCnt = len(mat)
 	#matrix element count(mat should ONLY be triangular)
 	elCnt = (vertCnt * vertCnt) / 2
 	#probability of mutation
 	#token from "Luke S. Essentials of Metaheuristics" p.30
-	p = 1 / size
+	p = 1 / elCnt
 	for i in range(vertCnt):
 		for j in range(i + 1):
 			num = random.random()
@@ -405,12 +464,12 @@ def bitFlipMutate(mat):
 	return mat
 
 # Perform One-Point Crossover("Luke S. Essentials of Metaheuristics" p.30)
-# mat0 and mat1 MUST have equal size, otherwise [], [] will be returned
+# mat0 and mat1 MUST have equal size, otherwise None, None will be returned
 def crossover(mat0, mat1):
 	#number of vertices in matrix
 	vertCnt = len(mat0)
-	if len(mat1) != vertCnt:
-		return [], []
+	if not len(mat1) or len(mat1) != vertCnt:
+		return None, None
 		#NOTREACHED
 		
 	#matrix element count(mat should ONLY be triangular)
@@ -446,9 +505,6 @@ def main(argv = None):
 		return 0
 		#NOTREACHED
 		
-	output = None
-	inputFilePath = ""
-	
 	"""
 	minType: 0 - minimizing average min distance with fixed vertex degree
 			 1 - minimizing average min distance and vert degree for fixed depth
@@ -481,21 +537,29 @@ def main(argv = None):
 		usage()
 		return 0
 		#NOTREACHED
-		
-	matVertsNum = 0
-	mat = []
-	matEdges = 0
-	matDepth = 0
-	matAverMinDist = 0 
-	matDegree = 0
 	
-	#matAverMinDist = averMinDist(mat)
-	#print("Average minimal distance equals: {}".format(matAverMinDist))
-	
-	#matDepth = depth(mat)
-	#print("depth is {}".format(matDepth))
+	random.seed()
 	
 	"""
+	8 verteces
+	target AMD = 1.7
+	maximum vertex degree = 4
+	population size = 10
+	generation cap = 1000
+	"""
+	
+	best = minimizeMat0(8, 1.7, 4, 10, 1000)
+	
+	print("minimization result: {}".format(best))
+	
+	"""
+	matAverMinDist = averMinDist(mat)
+	print("Average minimal distance equals: {}".format(matAverMinDist))
+	
+	matDepth = depth(mat)
+	print("depth is {}".format(matDepth))
+	
+	
 	visited = []
 	currVert = []
 	currVert.insert(0, 0)
