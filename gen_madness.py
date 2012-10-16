@@ -43,21 +43,43 @@ def depth(mat):
 	else:
 		return -1
 
-# Define matrix degree(maximum number of edges for one vertex)
+# Check matrix degree(maximum number of edges for one vertex)
 # Matrix must be traingular
-def matDegree(mat):
+#
+# return False - degree is bigger than limit
+#		 True - degree is ok
+def checkDegree(mat, limit):
 	degree = 0
 	#number of vertices in matrix
 	vertCnt = len(mat)
 	
+	degree = []
+	for i in range(vertCnt + 1):
+		degree.append(0)
+		
 	for i in range(vertCnt):
-		buff = 0
 		for j in range(i + 1):
 			if mat[i][j]:
-				buff += 1
-		if degree < buff:
-			degree = buff
+				degree[i + 1] += 1
+				if limit < degree[i + 1]:
+					return False
+	"""
+	print("horizontal")
+	for i in range(vertCnt + 1):
+		print("v#{}: {}".format(i, degree[i]))
+	"""
 	
+	for i in range(vertCnt):
+		for j in range(vertCnt - 1, i - 1, -1):
+			if mat[j][i]:
+				degree[i] += 1
+				if limit < degree[i]:
+					return False 
+	"""
+	print("\nvertical")
+	for i in range(vertCnt + 1):
+		print("v#{}: {}".format(i, degree[i]))
+	"""
 	return degree
 
 # get average minimal distance for graph
@@ -264,14 +286,16 @@ def selectInd(pop, tSize):
 	if popLen <= tSize:
 		tSize = popLen - 1
 		
-	best[0] = randint(0, popLen - 1)
+	best = [-1, []]
+	best[0] = random.randint(0, popLen - 1)
 	best[1] = averMinDist(pop[best[0]])
 	
 	#looking for the fittest individual
 	for i in range(1, tSize):
 		if best[0] == i:
 			continue
-		AMD = averMinDist(randint(a, b))
+		num = random.randint(0, popLen - 1)
+		AMD = averMinDist(pop[num])
 		if AMD < best[1]:
 			best[0] = i
 			best[1] = AMD
@@ -302,11 +326,13 @@ def minimizeMat0(graphSize, target, limit, popSize, generLim):
 	
 	#filling it in
 	while len(pop) < popSize:
-		ind = genRandomMat0(graphSize, limit)
-		if isConnected(ind):
+		ind = genRandomMat(graphSize)
+		if isConnected(ind) and checkDegree(ind, limit):
 			pop.append(ind)
+			
+	print("\n   Population generated\n")
 		
-	best = [-1, -1]			#the best individual with lowest average
+	best = [None, -1]			#the best individual with lowest average
 							#minimal distance (graph, AMD);
 	gen = 0					#generation number;
 	AMD = -1				#average minimal distance;
@@ -319,16 +345,23 @@ def minimizeMat0(graphSize, target, limit, popSize, generLim):
 		#assess fitness
 		for i in range(0, popSize):
 			AMD = averMinDist(pop[i])
-			if AMD < best[1] or -1 == best[0]:
-				best[0] = AMD
-				best[1] = pop[i]
+			print("ind#{}: AMD={}".format(i, AMD))
+			if AMD < best[1] or None == best[0]:
+				best[0] = pop[i]
+				best[1] = AMD
 				
-		if best[0] <= target:
-			return best[1]
+		print("\n   Fitness assessed\n")
+				
+		if best[1] <= target:
+			print("\n   Target reached before generation number exceedes")
+			return best[0]
 			#NOTREACHED
 		
 		newPop = []
-		for i in range(popSize / 2):
+		for i in range(int(popSize / 2)):
+			
+			print("\n   Evolution begins\n")
+			
 			#tournament size was taken from
 			#Luke S. Essentials of Metaheuristics" p.38
 			parentA = selectInd(pop, 2)
@@ -343,8 +376,8 @@ def minimizeMat0(graphSize, target, limit, popSize, generLim):
 				print("Error: mutation operation failed with params: {} {}".
 					format(childA, childB))
 			
-			newPop.append(chidA)
-			newPop.append(chidB)
+			newPop.append(childA)
+			newPop.append(childB)
 			
 		pop = newPop
 		gen += 1
@@ -353,7 +386,8 @@ def minimizeMat0(graphSize, target, limit, popSize, generLim):
 		print("generation number: {}\nfittest AMD = {}".format(gen, best[0]))
 
 		if generLim <= gen:
-			return best[1]
+			print("\n   Target not reached. Generation number exceeded")
+			return best[0]
 	
 
 # Check if graph is connected(if we can reach any random vertex from another)
@@ -392,9 +426,15 @@ def isConnected_(mat, currVert, visited):
 				currVert[0] = i + 1
 				currVert[1] = i + 1
 				visited.append(i + 1)
-				return isConnected_(mat, currVert, visited)
-				#NOTREACHED
-	return False
+				if isConnected_(mat, currVert, visited):
+					return True
+					#NOTREACHED
+	
+	#checking in case last visited vertex was in first column
+	if len(visited) == vertCnt + 1:
+		return True
+	else:
+		return False
 
 # Generate a simple random binary triangular matrix
 # Example: 
@@ -473,12 +513,16 @@ def crossover(mat0, mat1):
 		#NOTREACHED
 		
 	#matrix element count(mat should ONLY be triangular)
-	elCnt = (vertCnt * vertCnt) / 2
+	elCnt = int((vertCnt * vertCnt) / 2)
 	
 	pointSize = random.randrange(elCnt)
-	for i in range(pointSize, elCnt):
+	cnt = 0
+	for i in range(vertCnt):
 		for j in range(i + 1):
 			swap(mat0[i][j], mat1[i][j])
+			cnt += 1
+			if pointSize < cnt:
+				break
 
 	return mat0, mat1
 
@@ -541,14 +585,30 @@ def main(argv = None):
 	random.seed()
 	
 	"""
+	mat = []
+	mat.append([ 1 ])
+	mat.append([ 1, 0 ])
+	mat.append([ 0, 1, 0 ])
+	mat.append([ 0, 1, 0, 0 ])
+	mat.append([ 0, 1, 0, 1, 0 ])
+	mat.append([ 0, 1, 1, 0, 0, 0 ])
+	mat.append([ 0, 0, 1, 0, 1, 0, 0 ])
+	mat.append([ 0, 0, 1, 1, 0, 0, 0, 0])
+	if checkDegree(mat, 4):
+		print("degree is ok")
+	else:
+		print("degree is not ok")
+	
+	"""
+	"""
 	8 verteces
 	target AMD = 1.7
 	maximum vertex degree = 4
-	population size = 10
+	population size = 50
 	generation cap = 1000
 	"""
 	
-	best = minimizeMat0(8, 1.7, 4, 10, 1000)
+	best = minimizeMat0(8, 1.5, 4, 10, 5)
 	
 	print("minimization result: {}".format(best))
 	
