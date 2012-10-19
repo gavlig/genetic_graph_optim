@@ -12,10 +12,18 @@ import math
 verbose = False
 
 def usage():
-	print("available keys: -help -min-type=0-1 limit=1-inf verbose=0-3 -verts=3-inf\n"
-		" -thrCount=1-inf -averMinDist=1-inf -popSize=2-inf -popGap1-inf\n"
-		"where inf = infinite(theoretically. limited by your sanity and your resources)\n"
-		"short version: -h -v -m -l -ve -thc\n"
+	print("available keys:\n"
+        "--help\n"
+        "--min-type=0-1\n"
+        "--limit=1-inf\n"
+        "--verbose=0-3\n"
+        "--verts=3-inf\n"
+		"--thrCount=1-inf\n"
+        "--averMinDist=1-inf\n"
+        "--popSize=2-inf\n"
+        "--popGap1-inf\n\n"
+		"where inf = infinite(theoretically. limited by your sanity and resources)\n\n"
+		"short version: -h -v -m -l -ve -thc\n\n"
 		"default values: \n"
 		"min-type = 0\n"
 		"limit = 4\n"
@@ -24,7 +32,7 @@ def usage():
 		"thrCount = 10\n"
 		"averMinDist=1.5\n"
 		"popSize=20\n"
-		"popGap=50"
+		"popGap=50\n"
 		)
 
 	
@@ -138,10 +146,8 @@ def averMinDistThr(graphNum, graph, queue):
 					print("its length: {}".format(dist))
 	if distSum and 0 != distCnt:
 		queue.put([graphNum, distSum / distCnt])
-		#return  distSum / distCnt
 	else:
 		queue.put([-1, -1])
-		#return -1
 	
 # Find ramification for vertex where vertex number is row
 # return False if there is no ramification, else - True
@@ -409,9 +415,7 @@ def runInThreadsIt(ttlThrCnt, thrCnt, func, funcArg):
 	procCntMult = 1		#process quantity multiplier
 	if thrCnt < ttlThrCnt:
 		procCntMult = math.ceil(ttlThrCnt / thrCnt)
-		#print("procCntMult:{}".format(procCntMult))
 		procCnt = thrCnt
-		#print("procCnt:{}".format(procCnt))
 
 	itNum = 0			#iteration number
 	for n in range(0, procCntMult):
@@ -530,7 +534,6 @@ def minimizeMat0(graphSize, target, limit, popSize, generLim, thrLim):
 		pop = newPop
 		gen += 1
 
-		#os.system('clear')
 		print("generation number: {}\nfittest AMD = {}".format(gen, best[1]))
 
 		if generLim <= gen:
@@ -618,8 +621,6 @@ def genRandomMat0(size, limit):
 	edge = []
 	for i in range(0, size + 1):
 		edge.insert(i, [])
-		#for j in range(limit):
-		#	edge[i].append(0)
 	
 	for i in range(0, size + 1):
 		edge.insert(i, [])
@@ -627,47 +628,21 @@ def genRandomMat0(size, limit):
 		while len(edge[i]) < limit:
 			num = random.randrange(0, size + 1)
 			if num not in edge[i] and num != i and len(edge[num]) < limit:
-				#print("num:{}".format(num))
 				edge[i].append(num)
 				edge[num].append(i)
-				#print("i:{} {} num:{} {}".format(i, edge[i], num, edge[num]))
-				#print("\n")
 			if num not in checked:
 				checked.append(num)
 			if len(checked) == size + 1:
-				#print("yeeehaa!{}".format(checked))
 				break
-
-	#for i in range(0, size + 1):
-	#	print(edge[i])
-
-	#horizontal
-	#for i in range(size):
-	#	for j in range(i + 1):
-	#		if j in edge[i + 1]:
-	#			mat[i][j] = 1
 
 	#vertical
 	for i in range(size):
 		for j in range(size - 1, i - 1, -1):
-			#print(" edgenum {} vert:{} {}".format(j + 1, i, edge[i]))
 			if j + 1 in edge[i]:
 				mat[j][i] = 1
 
 	return mat
 
-"""
-# Generate a random binary triangular matrix sutisfying first 
-# minimization type(minType == 0, vertex degree must be fixed)
-def genRandomMat0(size, limit):
-	res = False
-	while not res:
-		mat = genRandomMat(size)
-		if isConnected(mat) and checkDegree(mat, limit):
-			res = True
-	return mat
-"""
-	
 # Generate a random binary triangular matrix sutisfying first 
 # minimization type(minType == 0, vertex degree must be fixed)
 def genRandomMat0Thr(size, limit, queue):
@@ -751,8 +726,6 @@ def main(argv = None):
 	if len(opts) == 0:
 		usage()
 		print("\n\n")
-	#	return 0
-		#NOTREACHED
 		
 	"""
 	minType: 0 - minimizing average min distance with fixed vertex degree
@@ -793,7 +766,6 @@ def main(argv = None):
 			popGap = arg
 		else:
 			usage()
-			#return 0
 			#NOTREACHED
 
 	#simple check on empty args
@@ -804,21 +776,6 @@ def main(argv = None):
 	
 	random.seed()
 	
-	"""
-	8 verteces
-	target AMD = 1.4
-	maximum vertex degree = 4
-	population size = 15
-	generation cap = 20
-	thread count limit = 5
-	"""
-	
-	#queue = multiprocessing.Queue()
-	#mat = genRandomMat0(10, 4)
-	#for i in range(10):
-	#	print(mat[i])
-	#print(isConnected(mat))
-	#print(checkDegree(mat, 5))
 	best = minimizeMat0(verts, amd, limit, popSize, popGap, thrCount)
 	
 	print("minimization result:")
