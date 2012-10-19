@@ -6,12 +6,28 @@ import getopt
 import random
 import os
 import multiprocessing
+import math
 
 #global in order to make it visible through all functions
 verbose = False
 
 def usage():
-	print("usage is not implemented yet")
+	print("available keys: -help -min-type=0-1 limit=1-inf verbose=0-3 -verts=3-inf\n"
+		" -thrCount=1-inf -averMinDist=1-inf -popSize=2-inf -popGap1-inf\n"
+		"where inf = infinite(theoretically. limited by your sanity and your resources)\n"
+		"short version: -h -v -m -l -ve -thc\n"
+		"default values: \n"
+		"min-type = 0\n"
+		"limit = 4\n"
+		"verbose = 0\n"
+		"verts = 8\n"
+		"thrCount = 10\n"
+		"averMinDist=1.5\n"
+		"popSize=20\n"
+		"popGap=50"
+		)
+
+	
 	
 # Swap two values
 def swap(a, b):
@@ -63,23 +79,12 @@ def checkDegree(mat, limit):
 				degree[i + 1] += 1
 				if limit < degree[i + 1]:
 					return False
-	"""
-	print("horizontal")
-	for i in range(vertCnt + 1):
-		print("v#{}: {}".format(i, degree[i]))
-	"""
-	
 	for i in range(vertCnt):
 		for j in range(vertCnt - 1, i - 1, -1):
 			if mat[j][i]:
 				degree[i] += 1
 				if limit < degree[i]:
 					return False 
-	"""
-	print("\nvertical")
-	for i in range(vertCnt + 1):
-		print("v#{}: {}".format(i, degree[i]))
-	"""
 	return degree
 
 # get average minimal distance for graph
@@ -335,6 +340,108 @@ def selectInd(pop, tSize):
 	
 	return best[1]
 
+# Run func with funcArgs which doesn't change during cycle:
+#
+# thrCnt - number of threads we want to run at the same time
+# ttlThrCnt - basically, it should be len(funcArg) as far as
+# funcArgs - list of arguments to be processed in cycle
+# func - function itself. Must consider last argument as queue
+def runInThreads(ttlThrCnt, thrCnt, func, funcArgs):
+	processes = []
+	result = []
+	resultQueue = multiprocessing.Queue()
+	args_ = []
+	for i in range(len(funcArgs)):
+		args_.append(funcArgs[i])
+	args_.append(resultQueue)
+	
+	procCnt = ttlThrCnt	#process quantity
+	procCntMult = 1		#process quantity multiplier
+	if thrCnt < ttlThrCnt:
+		procCntMult = math.ceil(ttlThrCnt / thrCnt)
+		print("procCntMult:{}".format(procCntMult))
+		procCnt = thrCnt
+		print("procCnt:{}".format(procCnt))
+
+	itNum = 0			#iteration number
+	for n in range(0, procCntMult):
+		dec = 0			#inner cycle iteration num
+		for i in range(0, procCnt):
+			process = multiprocessing.Process(
+				target = func,
+				args = args_
+				#args = [funcArgs, resultQueue]
+			)
+			process.start()
+			processes.append(process)
+			
+			print("new process #{} started".format(itNum))
+			
+			itNum += 1
+			dec += 1
+			if ttlThrCnt < itNum + 1:
+				break
+
+		#wait until any of the proccess have `.put()` a result
+		#while not resultQueue.empty():
+		for i in range(dec):
+			result.append(resultQueue.get())
+			print("process ended")
+			
+	for process in processes: #then kill them all off
+		process.terminate()
+		
+	return result
+
+
+# Run func with funcArg as list in threads where:
+#
+# thrCnt - number of threads we want to run at the same time
+# ttlThrCnt - basically, it should be len(funcArg) as far as
+# funcArg - list of values to be processed in cycle
+# func - function itself. Must consider last argument as queue
+def runInThreadsIt(ttlThrCnt, thrCnt, func, funcArg):
+	processes = []
+	result = []
+	resultQueue = multiprocessing.Queue()
+	
+	procCnt = ttlThrCnt	#process quantity
+	procCntMult = 1		#process quantity multiplier
+	if thrCnt < ttlThrCnt:
+		procCntMult = math.ceil(ttlThrCnt / thrCnt)
+		#print("procCntMult:{}".format(procCntMult))
+		procCnt = thrCnt
+		#print("procCnt:{}".format(procCnt))
+
+	itNum = 0			#iteration number
+	for n in range(0, procCntMult):
+		dec = 0			#inner cycle iteration num
+		for i in range(0, procCnt):
+			process = multiprocessing.Process(
+				target = func,
+				args = [itNum, funcArg[itNum], resultQueue]
+			)
+			process.start()
+			processes.append(process)
+			
+			print("new process #{} started".format(itNum))
+			
+			itNum += 1
+			dec += 1
+			if ttlThrCnt < itNum + 1:
+				break
+
+		#wait until any of the proccess have `.put()` a result
+		#while not resultQueue.empty():
+		for i in range(dec):
+			result.append(resultQueue.get())
+			print("process ended")
+			
+	for process in processes: #then kill them all off
+		process.terminate()
+		
+	return result
+
 # Minimize matrix by the rules of minType == 0 (see comments in main)
 # mat - triangular matrix to optimize
 # limit - fixed vertex degree
@@ -345,7 +452,7 @@ def selectInd(pop, tSize):
 # return 0 - matrix was successfully minimized
 #
 # reference - Luke S. Essentials of Metaheuristics" p.29
-def minimizeMat0(graphSize, target, limit, popSize, generLim):
+def minimizeMat0(graphSize, target, limit, popSize, generLim, thrLim):
 	
 	#sanity check
 	if not graphSize or int(popSize) <= 0 or int(generLim) <= 0:
@@ -354,71 +461,34 @@ def minimizeMat0(graphSize, target, limit, popSize, generLim):
 	
 	pop = []				#population
 	
+	print("\n   Starting population generation\n")
+	
 	#filling it in
-	while len(pop) < popSize:
-		pop.append(genRandomMat0(graphSize, limit))
+	args = [graphSize, limit]
+	result = runInThreads(popSize, thrLim, genRandomMat0Thr, args)
+	for i in range(len(result)):
+		pop.append(result[i])
 
 	print("\n   Population generated\n")
-		
+
 	best = [None, -1]		#the best individual with lowest average
 							#minimal distance (graph, AMD);
 	gen = 0					#generation number;
 	AMD = -1				#average minimal distance;
-	#filling in with zeros
-	#for i in range(0, popSize):
-	#	AMDs.append(0)
-	
+
+	#main loop
 	while True:
 		
 		#
 		#assess fitness
 		#
 		
-		processes = []
-		resultQueue = multiprocessing.Queue()
+		result = runInThreadsIt(popSize, thrLim, averMinDistThr, pop)
 		
-		#lets say we don't want more than 10 processes running at the same time
-		
-		procCnt = popSize	#process quantity
-		procCntMult = 1		#process quantity multiplier
-		if 10 < popSize:
-			procCntMult = int(popSize / 10)
-			procCnt = 10
-
-		#using multiprocessing
-		itNum = 0			#iteration number
-		for n in range(0, procCntMult):
-			dec = 0			#inner cycle iteration num
-			for i in range(0, procCnt):
-				graph = pop[itNum]
-				process = multiprocessing.Process(
-					target = averMinDistThr,
-					args = [itNum, pop[itNum], resultQueue]
-				)
-				process.start()
-				processes.append(process)
-				print(
-					"calculating average minimal distance for {} individual".
-					format(itNum)
-				)
-				
-				itNum += 1
-				dec += 1
-				if popSize < itNum:
-					break
-
-			#wait until any of the proccess have `.put()` a result
-			#while not resultQueue.empty():
-			for i in range(dec):
-				result = resultQueue.get()
-				print("process with ind#{} ended".format(result[0]))
-				#averMinDist will return [graphNum, AMD]
-				if result[1] < best[1] or -1 == best[1]:
-					best[0] = pop[result[0]]
-					best[1] = result[1]
-
-		for process in processes: #then kill them all off
-			process.terminate()
+		for i in range(len(result)):
+			if result[i][1] < best[1] or -1 == best[1]:
+					best[0] = pop[result[i][0]]
+					best[1] = result[i][1]
 
 		print("\n   Fitness assessed\n")
 				
@@ -536,16 +606,77 @@ def genRandomMat(size):
 			mat[i].insert(j, bit)
 
 	return mat
+
+def genRandomMat0(size, limit):
+	bit = 0
+	mat = []
+	for i in range(size):
+		mat.insert(i, [])
+		for j in range(i + 1):
+			mat[i].insert(j, 0)
+
+	edge = []
+	for i in range(0, size + 1):
+		edge.insert(i, [])
+		#for j in range(limit):
+		#	edge[i].append(0)
 	
+	for i in range(0, size + 1):
+		edge.insert(i, [])
+		checked = []
+		while len(edge[i]) < limit:
+			num = random.randrange(0, size + 1)
+			if num not in edge[i] and num != i and len(edge[num]) < limit:
+				#print("num:{}".format(num))
+				edge[i].append(num)
+				edge[num].append(i)
+				#print("i:{} {} num:{} {}".format(i, edge[i], num, edge[num]))
+				#print("\n")
+			if num not in checked:
+				checked.append(num)
+			if len(checked) == size + 1:
+				#print("yeeehaa!{}".format(checked))
+				break
+
+	#for i in range(0, size + 1):
+	#	print(edge[i])
+
+	#horizontal
+	#for i in range(size):
+	#	for j in range(i + 1):
+	#		if j in edge[i + 1]:
+	#			mat[i][j] = 1
+
+	#vertical
+	for i in range(size):
+		for j in range(size - 1, i - 1, -1):
+			#print(" edgenum {} vert:{} {}".format(j + 1, i, edge[i]))
+			if j + 1 in edge[i]:
+				mat[j][i] = 1
+
+	return mat
+
+"""
 # Generate a random binary triangular matrix sutisfying first 
 # minimization type(minType == 0, vertex degree must be fixed)
 def genRandomMat0(size, limit):
-	res = []
-	while not len(res):
+	res = False
+	while not res:
 		mat = genRandomMat(size)
 		if isConnected(mat) and checkDegree(mat, limit):
-			res = mat
+			res = True
 	return mat
+"""
+	
+# Generate a random binary triangular matrix sutisfying first 
+# minimization type(minType == 0, vertex degree must be fixed)
+def genRandomMat0Thr(size, limit, queue):
+	res = False
+	while not res:
+		mat = genRandomMat0(size, limit)
+		if isConnected(mat):
+			res = True
+	queue.put(mat)
 	
 # Perform bit-flip mutation on triangular matrix which will be processed as
 # binary vector
@@ -598,8 +729,19 @@ def main(argv = None):
 	try:
 		opts, args = getopt.getopt(
 			argv[1:],\
-			"hv:m:l:",\
-			["help", "min-type=", "limit=", "verbose="])
+			"hv:m:l:ve:thc:amd:ps:pg:",\
+			[
+				"help",
+				"min-type=",
+				"limit=",
+				"verbose=",
+				"verts=",
+				"thrCount=",
+				"averMinDist=",
+				"popSize=",
+				"popGap="
+			]
+		)
 	except getopt.GetoptError as err:
 		print(err)
 		usage()
@@ -608,7 +750,8 @@ def main(argv = None):
 		
 	if len(opts) == 0:
 		usage()
-		return 0
+		print("\n\n")
+	#	return 0
 		#NOTREACHED
 		
 	"""
@@ -618,9 +761,14 @@ def main(argv = None):
 	"""
 	
 	minType = 0
-	limit = 0
+	limit = 4
 	global verbose
-	verbose = 1
+	verbose = 0					#default
+	verts = 8					#default
+	thrCount = 10				#default
+	amd = 1.5
+	popSize = 20
+	popGap = 50
 	
 	for opt, arg in opts:
 		if opt in ("-v", "--verbose"):
@@ -633,9 +781,19 @@ def main(argv = None):
 			minType = arg
 		elif opt in ("-l", "--limit"):
 			limit = arg
+		elif opt in ("-ve", "--verts"):
+			verts = arg
+		elif opt in ("-thc", "--thrCount"):
+			thrCount = arg
+		elif opt in ("-amd", "--averMinDist"):
+			amd = arg
+		elif opt in ("-ps", "--popSize"):
+			popSize = arg
+		elif opt in ("-pg", "--popGap"):
+			popGap = arg
 		else:
 			usage()
-			return 0
+			#return 0
 			#NOTREACHED
 
 	#simple check on empty args
@@ -647,52 +805,25 @@ def main(argv = None):
 	random.seed()
 	
 	"""
-	mat = []
-	mat.append([ 1 ])
-	mat.append([ 1, 0 ])
-	mat.append([ 0, 1, 0 ])
-	mat.append([ 0, 1, 0, 0 ])
-	mat.append([ 0, 1, 0, 1, 0 ])
-	mat.append([ 0, 1, 1, 0, 0, 0 ])
-	mat.append([ 0, 0, 1, 0, 1, 0, 0 ])
-	mat.append([ 0, 0, 1, 1, 0, 0, 0, 0])
-	if checkDegree(mat, 4):
-		print("degree is ok")
-	else:
-		print("degree is not ok")
-	
-	"""
-	"""
 	8 verteces
 	target AMD = 1.4
 	maximum vertex degree = 4
-	population size = 100
-	generation cap = 1000
+	population size = 15
+	generation cap = 20
+	thread count limit = 5
 	"""
 	
-	best = minimizeMat0(8, 1.4, 4, 100, 5)
+	#queue = multiprocessing.Queue()
+	#mat = genRandomMat0(10, 4)
+	#for i in range(10):
+	#	print(mat[i])
+	#print(isConnected(mat))
+	#print(checkDegree(mat, 5))
+	best = minimizeMat0(verts, amd, limit, popSize, popGap, thrCount)
 	
 	print("minimization result:")
 	for i in range(len(best)):
-		print(best[i])
-	
-	"""
-	matAverMinDist = averMinDist(mat)
-	print("Average minimal distance equals: {}".format(matAverMinDist))
-	
-	matDepth = depth(mat)
-	print("depth is {}".format(matDepth))
-	
-	
-	visited = []
-	currVert = []
-	currVert.insert(0, 0)
-	currVert.insert(1, 0)
-	if isGraphConnected(mat, currVert, visited):
-		print("Graph is connected")
-	else:
-		print("Graph is not connected")
-	"""	
+		print(best[i])	
 
 if __name__ == "__main__":
 	#TODO: add descriptions for errors
