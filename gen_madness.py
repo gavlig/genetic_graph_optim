@@ -10,6 +10,7 @@ import math
 
 #global in order to make it visible through all functions
 verbose = False
+bestPathLen = -1
 
 def usage():
 	print("available keys:\n"
@@ -21,7 +22,7 @@ def usage():
 		"--thrCount=1-inf\n"
         "--averMinDist=1-inf\n"
         "--popSize=2-inf\n"
-        "--popGap1-inf\n\n"
+        "--popGap=1-inf\n\n"
 		"where inf = infinite(theoretically. limited by your sanity and resources)\n\n"
 		"short version: -h -v -m -l -ve -thc\n\n"
 		"default values: \n"
@@ -45,6 +46,9 @@ def swap(a, b):
 # Find distances between every two verts and take max from them
 # Return [] if any there are less than 2 vertices
 def depth(mat):
+	global bestPathLen
+	global verbose
+	
 	if 1 <= verbose:
 		print("\n   Calculating graph depth\n")
 	
@@ -56,7 +60,12 @@ def depth(mat):
 
 			if 2 <= verbose:
 				print("\nlooking for path between {} and {}".format(i, j))
-
+			if 3 <= verbose:
+				print("\nfor matrix:\n")
+				for n in range(0, vertCnt):
+					print(mat[n])
+			
+			bestPathLen = -1
 			dist = pathToVert(mat, i, j)
 			if max < dist or -1 == max:
 				max = dist
@@ -98,6 +107,9 @@ def checkDegree(mat, limit):
 # get average minimal distance for graph
 # modified for threading
 def averMinDist(graph):
+	global bestPathLen
+	global verbose
+	
 	if 1 <= verbose:
 		print("\n   Calculating average minimal distance for graph\n")
 	#number of vertices in matrix
@@ -110,7 +122,12 @@ def averMinDist(graph):
 			
 			if 2 <= verbose:
 				print("\nlooking for path between {} and {}".format(i, j))
+			if 3 <= verbose:
+				print("\nfor matrix:\n")
+				for n in range(0, vertCnt):
+					print(graph[n])
 			
+			bestPathLen = -1
 			dist = pathToVert(graph, i, j)
 			if dist:
 				distSum += dist
@@ -125,6 +142,9 @@ def averMinDist(graph):
 # get average minimal distance for graph
 # modified for threading
 def averMinDistThr(graphNum, graph, queue):
+	global bestPathLen
+	global verbose
+	
 	if 1 <= verbose:
 		print("\n   Calculating average minimal distance for graph\n")
 	#number of vertices in matrix
@@ -137,7 +157,12 @@ def averMinDistThr(graphNum, graph, queue):
 			
 			if 2 <= verbose:
 				print("\nlooking for path between {} and {}".format(i, j))
+			if 3 <= verbose:
+				print("\nfor matrix:\n")
+				for n in range(0, vertCnt):
+					print(graph[n])
 			
+			bestPathLen = -1
 			dist = pathToVert(graph, i, j)
 			if dist:
 				distSum += dist
@@ -200,9 +225,15 @@ def findRamification(mat, path, pathNum, row):
 # fndVert - actual vert founded
 # orient - horizontal or vertical orientation(0 and 1)
 def stepToVert(mat, fndVert, start, dest, path, pathNum, currVert, orient):
+	global bestPathLen
+	global verbose
 	#next vertex is the one we are looking for!
 	if fndVert == dest:
 		path[pathNum].append(fndVert)
+		if -1 == bestPathLen or len(path[pathNum]) < bestPathLen:
+			bestPathLen = len(path[pathNum])
+			if 3 <= verbose:
+				print("   bestPathLen changed: {}".format(bestPathLen))
 		if currVert != start:
 			return -2
 			#NOTREACHED
@@ -226,16 +257,23 @@ def stepToVert(mat, fndVert, start, dest, path, pathNum, currVert, orient):
 		newPath = path[pathNum][:]
 		path.append(newPath)
 		newPathNum = len(path) - 1
+		if 3 <= verbose:
+			print("ramification has occurred")
 	path[newPathNum].append(fndVert)
 	#going recursive
+	if 3 <= verbose:
+		print("fndVert is {}".format(fndVert))
 	pathToVert(mat, start, dest, path, fndVert, newPathNum)
 
 # Find distance from one vertex to another
 # distance == len(path) - 1
 # path should be two-dimensional list
+#
+# bestPathLen must be set to -1 before calling this!!!
 def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 	#number of vertices in matrix
 	global verbose
+	global bestPathLen
 	
 	vertCnt = len(mat)
 	if None == currVert:
@@ -247,42 +285,64 @@ def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 		path[0].append(start)
 	shifted = 0
 	
+	#vertical
+	if 0 <= currVert and\
+		currVert < vertCnt and\
+		path[pathNum][-1] != dest and\
+		(len(path[pathNum]) < bestPathLen - 1 or -1 == bestPathLen):
+		#if shifted:
+		#	currVert += 1
+		#	shifted = 0
+		for i in range(currVert, vertCnt):
+			if path[pathNum][-1] == dest:
+				break
+			if 0 < mat[i][currVert] and\
+				(i + 1 not in path[pathNum] or i + 1 == dest) and\
+				i + 1 != currVert:
+				if 3 <= verbose:
+					print("bestPathLen:{}".format(bestPathLen))
+					print("current path: {}".format(path[pathNum]))
+					print("moving from #{} to vert #{} ver".format(currVert, i + 1))
+					
+				out = stepToVert(mat, i + 1, start, dest, path, pathNum, currVert, 1)
+				if -2 == out:
+					return -1
+					#NOTREACHED
+				elif -1 == out:
+					break
+	
 	#horizontal
-	if 0 < currVert and currVert <= vertCnt and path[pathNum][-1] != dest:
+	if 0 < currVert and\
+		currVert <= vertCnt and\
+		path[pathNum][-1] != dest and\
+		(len(path[pathNum]) < bestPathLen - 1 or -1 == bestPathLen):
 		# indexes are shifted because we use triangular matrix
 		currVert -= 1
 		shifted = 1
 		for i in range(currVert, -1, -1):
 			if path[pathNum][-1] == dest:
 				break
-			if 0 < mat[currVert][i] and (i not in path[pathNum] or i == dest):
+			if 0 < mat[currVert][i] and\
+				(i not in path[pathNum] or i == dest) and\
+				i != currVert:
+				if 3 <= verbose:
+					print("bestPathLen:{}".format(bestPathLen))
+					print("current path: {}".format(path[pathNum]))
+					print("moving from #{} to vert #{} hor".format(currVert, i))
+					
 				out = stepToVert(mat, i, start, dest, path, pathNum, currVert, 0)
 				if -2 == out:
-					return
-				elif -1 == out:
-					break
-	#vertical
-	if 0 <= currVert and currVert < vertCnt and path[pathNum][-1] != dest:
-		if shifted:
-			currVert += 1
-			shifted = 0
-		for i in range(currVert, vertCnt):
-			if path[pathNum][-1] == dest:
-				break
-			if 0 < mat[i][currVert] and (i + 1 not in path[pathNum] or i + 1 == dest) :
-				out = stepToVert(mat, i + 1, start, dest, path, pathNum, currVert, 1)
-				if -2 == out:
-					return
+					return -1
+					#NOTREACHED
 				elif -1 == out:
 					break
 	
 	if shifted:
 		currVert += 1
-	
-	#we returned to start point so it's time to find optimal path
-	if 1 < len(path[0]) and currVert == path[0][0]:
 		
-		if 3 <= verbose:
+	#we returned to start point so it's time to find optimal path
+	if currVert == path[0][0]:# and 1 < len(path[0]):
+		if 2 <= verbose:
 			print("\npathToVert result:\n")
 			print("paths found:{}".format(len(path)))
 			
@@ -291,7 +351,7 @@ def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 		
 		for i in range(0, len(path)):
 			
-			if 3 <= verbose:
+			if 2 <= verbose:
 				print("#{}; path:{}".format(i, path[i]))
 				
 			currLen = len(path[i])
@@ -302,7 +362,7 @@ def pathToVert(mat, start, dest, path = None, currVert = None, pathNum = 0):
 				pathNum = i
 				length = currLen
 				
-		if 3 <= verbose:
+		if 2 <= verbose:
 			print("best path is #{}".format(pathNum))
 			
 		return len(path[pathNum]) - 1
@@ -353,6 +413,8 @@ def selectInd(pop, tSize):
 # funcArgs - list of arguments to be processed in cycle
 # func - function itself. Must consider last argument as queue
 def runInThreads(ttlThrCnt, thrCnt, func, funcArgs):
+	global verbose
+	
 	processes = []
 	result = []
 	resultQueue = multiprocessing.Queue()
@@ -365,9 +427,11 @@ def runInThreads(ttlThrCnt, thrCnt, func, funcArgs):
 	procCntMult = 1		#process quantity multiplier
 	if thrCnt < ttlThrCnt:
 		procCntMult = math.ceil(ttlThrCnt / thrCnt)
-		print("procCntMult:{}".format(procCntMult))
+		if 3 <= verbose:
+			print("procCntMult:{}".format(procCntMult))
 		procCnt = thrCnt
-		print("procCnt:{}".format(procCnt))
+		if 3 <= verbose:
+			print("procCnt:{}".format(procCnt))
 
 	itNum = 0			#iteration number
 	for n in range(0, procCntMult):
@@ -473,12 +537,12 @@ def minimizeMat0(graphSize, target, limit, popSize, generLim, thrLim):
 	for i in range(len(result)):
 		pop.append(result[i])
 
-	print("\n   Population generated\n")
-
 	best = [None, -1]		#the best individual with lowest average
 							#minimal distance (graph, AMD);
 	gen = 0					#generation number;
 	AMD = -1				#average minimal distance;
+	
+	print("\n   Population #{} generated\n".format(gen))
 
 	#main loop
 	while True:
@@ -497,8 +561,13 @@ def minimizeMat0(graphSize, target, limit, popSize, generLim, thrLim):
 		print("\n   Fitness assessed\n")
 				
 		if best[1] <= target:
-			print("\n   Target reached before generation number exceeded. "
-				"Reached AMD = {}\n".format(best[1]))
+			print(
+			"""
+\n
+   Target reached before generation number exceeded.\n 
+   Reached AMD = {}, generation number = {}\n
+			"""
+			.format(best[1], gen))
 			return best[0]
 			#NOTREACHED
 		
@@ -704,7 +773,7 @@ def main(argv = None):
 	try:
 		opts, args = getopt.getopt(
 			argv[1:],\
-			"hv:m:l:ve:thc:amd:ps:pg:",\
+			"hm:l:v:t:a:s:g:",\
 			[
 				"help",
 				"min-type=",
@@ -744,26 +813,26 @@ def main(argv = None):
 	popGap = 50
 	
 	for opt, arg in opts:
-		if opt in ("-v", "--verbose"):
+		if opt in ("--verbose"):
 			verbose = int(arg)
 		elif opt in ("-h", "--help"):
 			usage()
 			return 0
 			#NOTREACHED
 		elif opt in ("-m", "--min-type"):
-			minType = arg
+			minType = int(arg)
 		elif opt in ("-l", "--limit"):
-			limit = arg
-		elif opt in ("-ve", "--verts"):
-			verts = arg
-		elif opt in ("-thc", "--thrCount"):
-			thrCount = arg
-		elif opt in ("-amd", "--averMinDist"):
-			amd = arg
-		elif opt in ("-ps", "--popSize"):
-			popSize = arg
-		elif opt in ("-pg", "--popGap"):
-			popGap = arg
+			limit = int(arg)
+		elif opt in ("-v", "--verts"):
+			verts = int(arg)
+		elif opt in ("-t", "--thrCount"):
+			thrCount = int(arg)
+		elif opt in ("-a", "--averMinDist"):
+			amd = int(arg)
+		elif opt in ("-s", "--popSize"):
+			popSize = int(arg)
+		elif opt in ("-g", "--popGap"):
+			popGap = int(arg)
 		else:
 			usage()
 			#NOTREACHED
